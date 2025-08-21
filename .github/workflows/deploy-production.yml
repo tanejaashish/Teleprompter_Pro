@@ -1,0 +1,109 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.22.0'
+  NODE_VERSION: '20.x'
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend Services
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push Docker images
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker-compose -f docker-compose.prod.yml build
+          docker-compose -f docker-compose.prod.yml push
+      
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster teleprompt-pro-prod \
+            --service api-gateway \
+            --force-new-deployment
+
+  deploy-web:
+    name: Deploy Web Application
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-backend
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+      
+      - name: Build web application
+        run: |
+          cd apps/web
+          flutter build web --release --web-renderer canvaskit
+      
+      - name: Deploy to CloudFront
+        run: |
+          aws s3 sync build/web/ s3://${{ secrets.WEB_BUCKET_NAME }} --delete
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+  deploy-desktop:
+    name: Deploy Desktop Application
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    environment: production
+    needs: deploy-backend
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+      
+      - name: Build desktop application
+        run: |
+          cd apps/desktop
+          flutter build ${{ matrix.os == 'windows-latest' && 'windows' || (matrix.os == 'macos-latest' && 'macos' || 'linux') }} --release
+      
+      - name: Code sign (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          # Add Windows code signing here
+          
+      - name: Code sign (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Add macOS code signing here
+      
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/**/*.exe
+            build/**/*.dmg
+            build/**/*.AppImage

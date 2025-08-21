@@ -1,0 +1,44 @@
+name: teleprompt_pro
+repository: https://github.com/teleprompt-pro/teleprompt-pro
+
+packages:
+  - packages/**
+  - apps/**
+
+scripts:
+  analyze:
+    description: Analyze all packages
+    run: melos exec -- flutter analyze
+
+  test:
+    description: Run tests for all packages
+    run: melos exec -- flutter test
+
+  coverage:
+    description: Generate coverage for all packages
+    run: melos exec -- flutter test --coverage
+
+  format:
+    description: Format all packages
+    run: melos exec -- dart format .
+
+  clean:
+    description: Clean all packages
+    run: melos exec -- flutter clean
+
+  get:
+    description: Get dependencies for all packages
+    run: melos exec -- flutter pub get
+
+  upgrade:
+    description: Upgrade dependencies for all packages
+    run: melos exec -- flutter pub upgrade
+
+  build:all:
+    description: Build all applications
+    run: |
+      melos exec --scope="apps/*" -- flutter build
+
+command:
+  bootstrap:
+    usePubspecOverrides: true
