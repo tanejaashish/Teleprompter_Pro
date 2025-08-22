@@ -1,0 +1,494 @@
+// ============================================
+// apps/web/web/index.html
+// ============================================
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="description" content="Professional teleprompter with AI-powered features, cloud sync, and multi-platform support">
+  <meta name="keywords" content="teleprompter, professional, video, recording, script, AI">
+  <meta name="author" content="TelePrompt Pro">
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#6750A4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TelePrompt Pro">
+  <meta name="mobile-web-app-capable" content="yes">
+  
+  <!-- Open Graph Meta Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="TelePrompt Pro">
+  <meta property="og:description" content="Professional teleprompter with AI-powered features">
+  <meta property="og:image" content="/icons/og-image.png">
+  <meta property="og:url" content="https://teleprompt.pro">
+  
+  <!-- Twitter Card Meta Tags -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="TelePrompt Pro">
+  <meta name="twitter:description" content="Professional teleprompter with AI-powered features">
+  <meta name="twitter:image" content="/icons/twitter-image.png">
+  
+  <title>TelePrompt Pro - Professional Teleprompter</title>
+  
+  <!-- Icons -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#6750A4">
+  
+  <!-- Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  
+  <!-- Styles -->
+  <style>
+    :root {
+      --primary-color: #6750A4;
+      --background-color: #121212;
+      --text-color: #FFFFFF;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      overflow: hidden;
+    }
+    
+    #loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      z-index: 9999;
+      transition: opacity 0.3s ease;
+    }
+    
+    .loader {
+      width: 60px;
+      height: 60px;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+      margin-top: 20px;
+      font-size: 18px;
+      color: white;
+      font-weight: 500;
+    }
+    
+    .loading-progress {
+      width: 200px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 2px;
+      margin-top: 20px;
+      overflow: hidden;
+    }
+    
+    .loading-progress-bar {
+      height: 100%;
+      background: white;
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    
+    #install-prompt {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      color: #333;
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: none;
+      z-index: 1000;
+      max-width: 90%;
+      animation: slideUp 0.3s ease;
+    }
+    
+    @keyframes slideUp {
+      from {
+        transform: translateX(-50%) translateY(100px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+    }
+    
+    .install-prompt-content {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .install-prompt-text {
+      flex: 1;
+    }
+    
+    .install-prompt-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+    
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #5a3f93;
+    }
+    
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+    
+    .btn-secondary:hover {
+      background: #d0d0d0;
+    }
+    
+    .offline-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #ff9800;
+      color: white;
+      padding: 8px;
+      text-align: center;
+      z-index: 1000;
+      display: none;
+    }
+    
+    .offline-banner.show {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+      from {
+        transform: translateY(-100%);
+      }
+      to {
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Offline Banner -->
+  <div id="offline-banner" class="offline-banner">
+    You are currently offline. Some features may be limited.
+  </div>
+  
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loader"></div>
+    <div class="loading-text">Loading TelePrompt Pro</div>
+    <div class="loading-progress">
+      <div class="loading-progress-bar" id="loading-progress"></div>
+    </div>
+  </div>
+  
+  <!-- Install Prompt -->
+  <div id="install-prompt">
+    <div class="install-prompt-content">
+      <div class="install-prompt-text">
+        <strong>Install TelePrompt Pro</strong>
+        <div style="font-size: 14px; margin-top: 4px;">
+          Add to your home screen for the best experience
+        </div>
+      </div>
+      <div class="install-prompt-buttons">
+        <button class="btn btn-secondary" onclick="dismissInstallPrompt()">Later</button>
+        <button class="btn btn-primary" onclick="installApp()">Install</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Flutter App Container -->
+  <div id="flutter-app"></div>
+  
+  <script>
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then((registration) => {
+            console.log('Service Worker registered:', registration);
+            
+            // Check for updates
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New version available
+                  showUpdatePrompt();
+                }
+              });
+            });
+          })
+          .catch((error) => {
+            console.error('Service Worker registration failed:', error);
+          });
+          
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data.type === 'update-available') {
+            showUpdatePrompt();
+          } else if (event.data.type === 'recording-uploaded') {
+            showNotification('Recording uploaded successfully');
+          }
+        });
+      });
+    }
+    
+    // Install Prompt
+    let deferredPrompt;
+    
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      
+      // Show install prompt after 30 seconds or on user interaction
+      setTimeout(() => {
+        if (deferredPrompt) {
+          showInstallPrompt();
+        }
+      }, 30000);
+    });
+    
+    function showInstallPrompt() {
+      const prompt = document.getElementById('install-prompt');
+      prompt.style.display = 'block';
+    }
+    
+    function dismissInstallPrompt() {
+      const prompt = document.getElementById('install-prompt');
+      prompt.style.display = 'none';
+      
+      // Show again after 7 days
+      localStorage.setItem('installPromptDismissed', Date.now());
+    }
+    
+    async function installApp() {
+      if (!deferredPrompt) return;
+      
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      
+      if (outcome === 'accepted') {
+        console.log('App installed');
+        gtag('event', 'app_install', { method: 'pwa' });
+      }
+      
+      deferredPrompt = null;
+      dismissInstallPrompt();
+    }
+    
+    // Offline Detection
+    window.addEventListener('online', () => {
+      document.getElementById('offline-banner').classList.remove('show');
+      syncOfflineData();
+    });
+    
+    window.addEventListener('offline', () => {
+      document.getElementById('offline-banner').classList.add('show');
+    });
+    
+    // Background Sync
+    async function syncOfflineData() {
+      if ('sync' in self.registration) {
+        try {
+          await self.registration.sync.register('sync-all');
+          console.log('Background sync registered');
+        } catch (error) {
+          console.error('Background sync failed:', error);
+        }
+      }
+    }
+    
+    // Push Notifications
+    async function subscribeToPushNotifications() {
+      if ('PushManager' in window) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array('YOUR_VAPID_PUBLIC_KEY')
+          });
+          
+          // Send subscription to server
+          await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(subscription)
+          });
+          
+          console.log('Push notifications enabled');
+        } catch (error) {
+          console.error('Push subscription failed:', error);
+        }
+      }
+    }
+    
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+      
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+    
+    // Loading Progress
+    let loadingProgress = 0;
+    const progressBar = document.getElementById('loading-progress');
+    
+    const progressInterval = setInterval(() => {
+      loadingProgress += Math.random() * 15;
+      if (loadingProgress > 90) {
+        loadingProgress = 90;
+        clearInterval(progressInterval);
+      }
+      progressBar.style.width = loadingProgress + '%';
+    }, 200);
+    
+    // Flutter initialization
+    window.addEventListener('flutter-first-frame', () => {
+      loadingProgress = 100;
+      progressBar.style.width = '100%';
+      
+      setTimeout(() => {
+        const loadingScreen = document.getElementById('loading-screen');
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => {
+          loadingScreen.style.display = 'none';
+        }, 300);
+      }, 500);
+    });
+    
+    // Share Target Handler
+    if (window.location.pathname === '/share') {
+      const params = new URLSearchParams(window.location.search);
+      const sharedData = {
+        title: params.get('title'),
+        text: params.get('text'),
+        url: params.get('url')
+      };
+      
+      // Pass to Flutter app
+      window.sharedData = sharedData;
+    }
+    
+    // Protocol Handler
+    if (window.location.pathname === '/open') {
+      const params = new URLSearchParams(window.location.search);
+      const url = params.get('url');
+      
+      if (url && url.startsWith('web+teleprompt:')) {
+        // Handle custom protocol
+        window.customProtocolData = url;
+      }
+    }
+    
+    // Periodic Sync Registration
+    async function registerPeriodicSync() {
+      if ('periodicSync' in self.registration) {
+        try {
+          await self.registration.periodicSync.register('content-sync', {
+            minInterval: 24 * 60 * 60 * 1000 // 24 hours
+          });
+          console.log('Periodic sync registered');
+        } catch (error) {
+          console.error('Periodic sync registration failed:', error);
+        }
+      }
+    }
+    
+    // Initialize app features
+    window.addEventListener('load', () => {
+      if (navigator.onLine) {
+        syncOfflineData();
+      }
+      
+      // Request notification permission after user interaction
+      document.addEventListener('click', () => {
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().then((permission) => {
+            if (permission === 'granted') {
+              subscribeToPushNotifications();
+            }
+          });
+        }
+      }, { once: true });
+      
+      registerPeriodicSync();
+    });
+    
+    // Update prompt
+    function showUpdatePrompt() {
+      if (confirm('A new version of TelePrompt Pro is available. Update now?')) {
+        window.location.reload();
+      }
+    }
+    
+    // Helper function to show notifications
+    function showNotification(message) {
+      if (Notification.permission === 'granted') {
+        new Notification('TelePrompt Pro', {
+          body: message,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-72x72.png'
+        });
+      }
+    }
+  </script>
+  
+  <!-- Flutter Web App -->
+  <script src="flutter.js" defer></script>
+</body>
+</html>

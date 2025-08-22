@@ -1,0 +1,37 @@
+name: core
+description: Core business logic for TelePrompt Pro
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State management
+  flutter_riverpod: ^2.6.1
+  
+  # Local storage
+  sqflite_common_ffi: ^2.3.6
+  path_provider: ^2.1.5
+  path: ^1.8.3
+  
+  # Utilities
+  uuid: ^4.5.1
+  intl: ^0.18.1
+  equatable: ^2.0.5
+  json_annotation: ^4.8.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  build_runner: ^2.4.0
+  json_serializable: ^6.7.1
+  mockito: ^5.4.0
+
+flutter:
+  uses-material-design: true

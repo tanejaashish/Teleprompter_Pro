@@ -1,0 +1,173 @@
+{
+  "name": "TelePrompt Pro - Professional Teleprompter",
+  "short_name": "TelePrompt Pro",
+  "description": "Professional teleprompter with AI-powered features, cloud sync, and multi-platform support",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#6750A4",
+  "background_color": "#121212",
+  "scope": "/",
+  "id": "teleprompt-pro-pwa",
+  
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  
+  "screenshots": [
+    {
+      "src": "/screenshots/teleprompter.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Teleprompter View"
+    },
+    {
+      "src": "/screenshots/scripts.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Script Management"
+    },
+    {
+      "src": "/screenshots/recording.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Video Recording"
+    }
+  ],
+  
+  "shortcuts": [
+    {
+      "name": "New Script",
+      "short_name": "New",
+      "description": "Create a new teleprompter script",
+      "url": "/scripts/new",
+      "icons": [{ "src": "/icons/new-script.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Quick Record",
+      "short_name": "Record",
+      "description": "Start recording immediately",
+      "url": "/record",
+      "icons": [{ "src": "/icons/record.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Recent Scripts",
+      "short_name": "Recent",
+      "description": "Open recent scripts",
+      "url": "/scripts/recent",
+      "icons": [{ "src": "/icons/recent.png", "sizes": "192x192" }]
+    }
+  ],
+  
+  "categories": ["productivity", "business", "education"],
+  
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["text/*", ".txt", ".docx", ".pdf"]
+        }
+      ]
+    }
+  },
+  
+  "protocol_handlers": [
+    {
+      "protocol": "web+teleprompt",
+      "url": "/open?url=%s"
+    }
+  ],
+  
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=pro.teleprompt.app",
+      "id": "pro.teleprompt.app"
+    },
+    {
+      "platform": "itunes",
+      "url": "https://apps.apple.com/app/teleprompt-pro/id123456789"
+    },
+    {
+      "platform": "windows",
+      "url": "https://www.microsoft.com/store/apps/teleprompt-pro"
+    }
+  ],
+  
+  "prefer_related_applications": false,
+  
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  
+  "launch_handler": {
+    "client_mode": ["focus-existing", "auto"]
+  },
+  
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  
+  "file_handlers": [
+    {
+      "action": "/open",
+      "accept": {
+        "text/plain": [".txt"],
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+        "application/pdf": [".pdf"]
+      }
+    }
+  ]
+}

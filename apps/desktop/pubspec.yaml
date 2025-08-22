@@ -1,0 +1,117 @@
+name: teleprompt_desktop
+description: TelePrompt Pro Desktop Application - Phase 4 Enhanced
+version: 2.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  
+  # Core dependencies (existing - compatible versions)
+  flutter_quill: ^11.4.2
+  flutter_riverpod: ^2.6.1
+  path_provider: ^2.1.5
+  sqflite_common_ffi: ^2.3.6
+  uuid: ^3.0.7  # Downgraded to match system_tray requirement
+  window_manager: ^0.5.1
+  intl: ^0.20.1
+  file_picker: ^10.3.2
+  
+  # Phase 4 Enhanced - Networking & API
+  http: ^1.2.2
+  dio: ^5.7.0
+  web_socket_channel: ^3.0.1
+  
+  # Phase 4 Enhanced - OAuth & Authentication
+  url_launcher: ^6.3.1
+  flutter_secure_storage: ^9.2.2
+  crypto: ^3.0.6
+  
+  # Phase 4 Enhanced - System Integration
+  system_tray: ^2.0.3  # Now compatible with uuid ^3.0.7
+  local_notifier: ^0.1.6
+  hotkey_manager: ^0.2.3
+  
+  # Phase 4 Enhanced - Camera & Media (Windows)
+  camera: ^0.11.0+2
+  camera_windows: ^0.2.6
+  #record: ^5.1.2
+  
+  # Phase 4 Enhanced - Storage & Preferences
+  shared_preferences: ^2.3.3
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # Phase 4 Enhanced - UI Enhancements
+  fl_chart: ^0.69.2
+  shimmer: ^3.0.0
+  badges: ^3.1.1
+  
+  # Phase 4 Enhanced - Video Processing
+  video_player: ^2.9.2
+  # ffmpeg_kit_flutter: ^6.0.3  # Commented out - may have conflicts
+  
+  # Phase 4 Enhanced - AI/ML Support (optional - check compatibility)
+  # tflite_flutter: ^0.11.0
+  
+  # Phase 4 Enhanced - Export & Documents
+  pdf: ^3.11.1
+  excel: ^4.0.6
+  csv: ^6.0.0
+  
+  # Phase 4 Enhanced - Image Processing
+  image: ^4.3.0
+  image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  
+  # Testing utilities
+  mockito: ^5.4.4
+  build_runner: ^2.4.13
+  
+  # Windows MSIX packaging
+  msix: ^3.16.6
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/fonts/
+    - assets/models/
+    - assets/backgrounds/
+  
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+
+msix_config:
+  display_name: TelePrompt Pro Enhanced
+  publisher_display_name: TelePrompt Pro Team
+  identity_name: com.telepromptpro.desktop
+  msix_version: 2.0.0.0
+  logo_path: windows/runner/resources/app_icon.ico
+  capabilities: internetClient, microphone, webcam, documentsLibrary, videosLibrary
+  languages: en-us
+  windows_build_args: --release

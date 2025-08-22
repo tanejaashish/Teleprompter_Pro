@@ -1,0 +1,10 @@
+<key>NSCameraUsageDescription</key>
+<string>TelePrompt Pro needs camera access to record your presentations</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>TelePrompt Pro needs microphone access to record audio with your presentations</string>
+<key>UIBackgroundModes</key>
+<array>
+    <string>audio</string>
+    <string>fetch</string>
+    <string>remote-notification</string>
+</array>

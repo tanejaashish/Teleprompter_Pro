@@ -1,0 +1,9 @@
+{
+  "watch": ["api-gateway/src", ".env"],
+  "ext": "ts,js",
+  "ignore": ["dist", "node_modules"],
+  "exec": "ts-node",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

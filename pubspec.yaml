@@ -6,5 +6,10 @@ environment:
 
 dev_dependencies:
   melos: ^3.0.0
+dependencies:
+  flutter_riverpod: ^2.6.1
+  path_provider: ^2.1.5
+  sqflite_common_ffi: ^2.3.6
+  uuid: ^4.5.1
   
 # Melos workspace configuration

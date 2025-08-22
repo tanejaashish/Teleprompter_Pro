@@ -1,0 +1,29 @@
+name: teleprompt_mobile
+description: TelePrompt Pro Mobile App
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.4.0
+  camera: ^0.10.5
+  permission_handler: ^11.0.1
+  firebase_core: ^2.24.0
+  firebase_messaging: ^14.7.6
+  flutter_local_notifications: ^16.1.0
+  device_info_plus: ^9.1.1
+  in_app_purchase: ^3.1.11
+  local_auth: ^2.1.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

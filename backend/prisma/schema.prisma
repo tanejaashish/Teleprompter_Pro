@@ -1,0 +1,414 @@
+// backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String?
+  displayName     String?
+  photoUrl        String?
+  emailVerified   Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  subscription    Subscription?
+  scripts         Script[]
+  recordings      Recording[]
+  sessions        Session[]
+  activities      Activity[]
+  
+  // OAuth providers
+  googleId        String?   @unique
+  appleId         String?   @unique
+  microsoftId     String?   @unique
+  
+  // Settings & Metadata
+  preferences     Json      @default("{}")
+  metadata        Json?
+  
+  @@index([email])
+  @@index([createdAt])
+}
+
+model Subscription {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tier            String    @default("free") // free, creator, professional, enterprise
+  status          String    @default("active") // active, cancelled, expired, suspended
+  
+  // Stripe integration
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  
+  // Subscription dates
+  startDate       DateTime  @default(now())
+  endDate         DateTime?
+  cancelledAt     DateTime?
+  trialEndsAt     DateTime?
+  
+  // Usage & Features
+  features        Json      @default("{}")
+  usage           Json      @default("{}")
+  limits          Json      @default("{}")
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([tier])
+  @@index([stripeCustomerId])
+}
+
+model Script {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title           String
+  content         String    @db.Text
+  richContent     String?   @db.Text // JSON for rich text formatting
+  
+  // Metrics
+  wordCount       Int       @default(0)
+  characterCount  Int       @default(0)
+  estimatedDuration Int     @default(0) // in seconds
+  
+  // Settings & Configuration
+  settings        Json      @default("{}")
+  markers         Json      @default("[]")
+  
+  // Organization
+  category        String?
+  tags            String[]  @default([])
+  folderId        String?
+  
+  // Sharing & Visibility
+  isPublic        Boolean   @default(false)
+  isTemplate      Boolean   @default(false)
+  isArchived      Boolean   @default(false)
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  lastOpenedAt    DateTime?
+  
+  // Relations
+  recordings      Recording[]
+  shares          Share[]
+  versions        ScriptVersion[]
+  collaborators   Collaborator[]
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([category])
+  @@index([isPublic])
+  @@index([isTemplate])
+  @@index([folderId])
+}
+
+model ScriptVersion {
+  id              String    @id @default(cuid())
+  scriptId        String
+  script          Script    @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  
+  version         Int
+  content         String    @db.Text
+  richContent     String?   @db.Text
+  
+  changeLog       String?
+  createdBy       String
+  
+  createdAt       DateTime  @default(now())
+  
+  @@unique([scriptId, version])
+  @@index([scriptId])
+  @@index([createdAt])
+}
+
+model Recording {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  scriptId        String?
+  script          Script?   @relation(fields: [scriptId], references: [id], onDelete: SetNull)
+  
+  title           String
+  duration        Int       // in seconds
+  fileSize        BigInt    // in bytes
+  
+  // File locations
+  localPath       String?
+  cloudUrl        String?
+  thumbnailUrl    String?
+  transcriptUrl   String?
+  
+  // Recording settings
+  quality         String    @default("1080p") // 720p, 1080p, 4K
+  format          String    @default("mp4") // mp4, mov, webm
+  fps             Int       @default(30)
+  bitrate         Int?
+  
+  // Metadata
+  metadata        Json      @default("{}")
+  cameraSettings  Json?
+  audioSettings   Json?
+  
+  // Processing status
+  status          String    @default("completed") // recording, processing, completed, failed
+  processingError String?
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  
+  @@index([userId])
+  @@index([scriptId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model Session {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token           String    @unique
+  refreshToken    String?   @unique
+  
+  // Device information
+  deviceId        String
+  deviceName      String?
+  deviceType      String?   // mobile, desktop, web
+  platform        String?   // ios, android, windows, macos, linux, web
+  
+  // Network information
+  ipAddress       String?
+  userAgent       String?
+  location        String?
+  
+  // Session metadata
+  deviceInfo      Json?
+  
+  // Timestamps
+  expiresAt       DateTime
+  lastActivityAt  DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([token])
+  @@index([refreshToken])
+  @@index([expiresAt])
+  @@index([deviceId])
+}
+
+model Activity {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type            String    // script_created, script_updated, recording_started, etc.
+  action          String    // create, update, delete, view, share
+  
+  // Related entities
+  entityType      String?   // script, recording, subscription
+  entityId        String?
+  entityTitle     String?
+  
+  // Additional data
+  metadata        Json?
+  ipAddress       String?
+  deviceId        String?
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model Share {
+  id              String    @id @default(cuid())
+  scriptId        String
+  script          Script    @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  
+  sharedBy        String    // userId who shared
+  sharedWith      String?   // email or userId (null for public links)
+  
+  permission      String    @default("view") // view, comment, edit
+  
+  // Share link details
+  shareCode       String?   @unique
+  password        String?   // optional password protection
+  
+  // Expiration
+  expiresAt       DateTime?
+  maxViews        Int?      // limit number of views
+  
+  // Tracking
+  viewCount       Int       @default(0)
+  lastViewedAt    DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([scriptId, sharedWith])
+  @@index([scriptId])
+  @@index([sharedWith])
+  @@index([shareCode])
+  @@index([sharedBy])
+}
+
+model Collaborator {
+  id              String    @id @default(cuid())
+  scriptId        String
+  script          Script    @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  
+  userId          String
+  email           String
+  role            String    @default("viewer") // viewer, editor, owner
+  
+  invitedBy       String
+  acceptedAt      DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([scriptId, userId])
+  @@index([scriptId])
+  @@index([userId])
+  @@index([email])
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  userId          String
+  
+  // Payment details
+  amount          Decimal   @db.Money
+  currency        String    @default("USD")
+  status          String    // pending, completed, failed, refunded
+  
+  // Payment method
+  paymentMethod   String    // card, paypal, apple_pay, google_pay
+  last4           String?   // last 4 digits of card
+  
+  // Stripe details
+  stripePaymentIntentId String?   @unique
+  stripeInvoiceId       String?   @unique
+  stripeChargeId        String?   @unique
+  
+  // What was purchased
+  description     String
+  subscriptionId  String?
+  productType     String    // subscription, one_time, credit
+  
+  // Metadata
+  metadata        Json?
+  failureReason   String?
+  refundedAt      DateTime?
+  refundAmount    Decimal?  @db.Money
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([stripePaymentIntentId])
+  @@index([createdAt])
+}
+
+model ApiKey {
+  id              String    @id @default(cuid())
+  userId          String
+  
+  name            String
+  key             String    @unique
+  hashedKey       String    @unique
+  
+  permissions     String[]  @default([])
+  rateLimit       Int       @default(1000) // requests per hour
+  
+  lastUsedAt      DateTime?
+  expiresAt       DateTime?
+  
+  createdAt       DateTime  @default(now())
+  revokedAt       DateTime?
+  
+  @@index([userId])
+  @@index([key])
+  @@index([hashedKey])
+}
+
+model Webhook {
+  id              String    @id @default(cuid())
+  userId          String
+  
+  url             String
+  events          String[]  // script.created, recording.completed, etc.
+  
+  secret          String
+  isActive        Boolean   @default(true)
+  
+  // Delivery tracking
+  lastTriggeredAt DateTime?
+  failureCount    Int       @default(0)
+  lastError       String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([isActive])
+}
+
+model AuditLog {
+  id              String    @id @default(cuid())
+  
+  userId          String?
+  userEmail       String?
+  
+  action          String    // login, logout, create, update, delete, view
+  resource        String    // user, script, recording, subscription
+  resourceId      String?
+  
+  // Request details
+  ipAddress       String?
+  userAgent       String?
+  method          String?   // GET, POST, PUT, DELETE
+  path            String?
+  
+  // Response
+  statusCode      Int?
+  success         Boolean
+  errorMessage    String?
+  
+  // Additional data
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([resourceId])
+  @@index([createdAt])
+}
