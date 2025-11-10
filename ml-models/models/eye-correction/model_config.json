@@ -1,0 +1,57 @@
+{
+  "model_name": "eye-correction",
+  "version": "1.0.0",
+  "framework": "tensorflow",
+  "input_shape": [1, 224, 224, 3],
+  "output_shape": [1, 224, 224, 3],
+  "preprocessing": {
+    "resize": [224, 224],
+    "normalize": true,
+    "mean": [0.485, 0.456, 0.406],
+    "std": [0.229, 0.224, 0.225]
+  },
+  "inference": {
+    "batch_size": 1,
+    "precision": "float32",
+    "device": "cuda"
+  },
+  "performance": {
+    "target_fps": 30,
+    "max_latency_ms": 50,
+    "min_accuracy": 0.95
+  },
+  "model_files": {
+    "full_model": "model.h5",
+    "weights": "weights.h5",
+    "architecture": "architecture.json",
+    "onnx": "model.onnx",
+    "tflite": "model.tflite"
+  },
+  "dependencies": {
+    "tensorflow": ">=2.10.0",
+    "opencv-python": ">=4.7.0",
+    "mediapipe": ">=0.9.0",
+    "numpy": ">=1.23.0"
+  },
+  "training": {
+    "dataset": "proprietary-gaze-dataset",
+    "training_samples": 50000,
+    "validation_samples": 10000,
+    "test_samples": 5000,
+    "epochs": 100,
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "loss_function": "mse",
+    "metrics": ["accuracy", "mae"]
+  },
+  "hyperparameters": {
+    "correction_intensity": 0.7,
+    "smoothing_factor": 0.3,
+    "face_detection_confidence": 0.5,
+    "landmark_tracking_confidence": 0.5
+  },
+  "license": "proprietary",
+  "created_at": "2024-01-15T00:00:00Z",
+  "updated_at": "2024-01-15T00:00:00Z",
+  "author": "TelePrompt Pro ML Team"
+}

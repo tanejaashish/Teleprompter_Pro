@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { PrismaClient } from "@prisma/client";
 import * as tf from "@tensorflow/tfjs-node";
 import OpenAI from "openai";
+import { createReadStream } from "fs";
 
 const prisma = new PrismaClient();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -325,7 +326,7 @@ export class AdvancedAIService {
     });
 
     const analysis_result = JSON.parse(
-      completion.choices[0].message.function_call?.arguments || "{}",
+      analysis.choices[0].message.function_call?.arguments || "{}",
     );
 
     return {

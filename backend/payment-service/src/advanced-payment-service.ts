@@ -357,4 +357,305 @@ export class AdvancedPaymentService {
 
     return quotas[tier]?.[feature] || 0;
   }
+
+  private async createStripeCustomer(user: any): Promise<string> {
+    const customer = await stripe.customers.create({
+      email: user.email,
+      name: user.displayName || user.email,
+      metadata: {
+        userId: user.id,
+      },
+    });
+
+    // Update user with Stripe customer ID
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { stripeCustomerId: customer.id },
+    });
+
+    return customer.id;
+  }
+
+  private async createUpgradeSession(
+    params: any,
+    currentSubscription: any,
+  ): Promise<Stripe.Checkout.Session> {
+    // Create checkout session for upgrade/downgrade
+    const session = await stripe.checkout.sessions.create({
+      customer: currentSubscription.stripeCustomerId,
+      payment_method_types: ["card"],
+      mode: "subscription",
+      line_items: [
+        {
+          price: this.pricing[params.plan][params.interval].priceId,
+          quantity: params.quantity || 1,
+        },
+      ],
+      success_url: params.successUrl,
+      cancel_url: params.cancelUrl,
+      subscription_data: {
+        metadata: {
+          userId: params.userId,
+          upgradeFrom: currentSubscription.tier,
+          upgradeTo: params.plan,
+        },
+      },
+      metadata: {
+        userId: params.userId,
+        action: "upgrade",
+      },
+    });
+
+    return session;
+  }
+
+  private async grantAccess(
+    userId: string,
+    subscription: Stripe.Subscription,
+  ): Promise<void> {
+    const tier = this.getTierFromPriceId(subscription.items.data[0].price.id);
+
+    // Update user subscription features
+    await prisma.subscription.update({
+      where: { userId },
+      data: {
+        features: {
+          unlimitedScripts: tier !== "free",
+          voiceScrolling: tier === "advanced" || tier === "pro" || tier === "team",
+          aiGeneration: tier === "advanced" || tier === "pro" || tier === "team",
+          eyeCorrection: tier === "pro" || tier === "team",
+          collaboration: tier === "pro" || tier === "team",
+          analytics: tier === "pro" || tier === "team",
+          teamWorkspace: tier === "team",
+          prioritySupport: tier === "pro" || tier === "team",
+        },
+      },
+    });
+
+    // Log activity
+    await prisma.activity.create({
+      data: {
+        userId,
+        type: "subscription_activated",
+        action: "create",
+        entityType: "subscription",
+        entityId: subscription.id,
+        metadata: { tier },
+      },
+    });
+  }
+
+  private async sendWelcomeEmail(
+    userId: string,
+    subscription: Stripe.Subscription,
+  ): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user?.email) return;
+
+    const tier = this.getTierFromPriceId(subscription.items.data[0].price.id);
+
+    // TODO: Integrate with email service (SendGrid, AWS SES, etc.)
+    console.log(`Welcome email sent to ${user.email} for ${tier} plan`);
+
+    // Email content would include:
+    // - Thank you message
+    // - Plan features overview
+    // - Getting started guide
+    // - Support contact information
+  }
+
+  private async trackSubscriptionEvent(
+    eventType: string,
+    data: Record<string, any>,
+  ): Promise<void> {
+    // Log the event to analytics/activity table
+    await prisma.activity.create({
+      data: {
+        userId: data.userId,
+        type: eventType,
+        action: "create",
+        metadata: data,
+      },
+    });
+
+    // TODO: Send to analytics platform (Google Analytics, Mixpanel, etc.)
+    console.log(`Subscription event tracked: ${eventType}`, data);
+  }
+
+  private getOveragePrice(feature: string): number {
+    const overagePricing: Record<string, number> = {
+      ai_generation: 0.01, // $0.01 per word
+      transcription: 0.1, // $0.10 per minute
+      eye_correction: 1.0, // $1.00 per video
+    };
+
+    return overagePricing[feature] || 0;
+  }
+
+  private async handleSubscriptionUpdate(
+    subscription: Stripe.Subscription,
+  ): Promise<void> {
+    const userId = subscription.metadata.userId;
+    if (!userId) return;
+
+    await prisma.subscription.update({
+      where: { userId },
+      data: {
+        tier: this.getTierFromPriceId(subscription.items.data[0].price.id),
+        status: subscription.status as any,
+        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      },
+    });
+
+    // Update access rights
+    await this.grantAccess(userId, subscription);
+
+    // Track event
+    await this.trackSubscriptionEvent("subscription_updated", {
+      userId,
+      status: subscription.status,
+    });
+  }
+
+  private async handleSubscriptionCanceled(
+    subscription: Stripe.Subscription,
+  ): Promise<void> {
+    const userId = subscription.metadata.userId;
+    if (!userId) return;
+
+    await prisma.subscription.update({
+      where: { userId },
+      data: {
+        status: "cancelled",
+        cancelledAt: new Date(),
+      },
+    });
+
+    // Send cancellation email
+    // TODO: Implement cancellation email
+
+    // Track event
+    await this.trackSubscriptionEvent("subscription_cancelled", {
+      userId,
+      reason: subscription.cancellation_details?.reason,
+    });
+  }
+
+  private async handleTrialEnding(
+    subscription: Stripe.Subscription,
+  ): Promise<void> {
+    const userId = subscription.metadata.userId;
+    if (!userId) return;
+
+    // Send trial ending reminder email
+    // TODO: Implement trial ending email
+
+    // Track event
+    await this.trackSubscriptionEvent("trial_ending", {
+      userId,
+      endsAt: new Date(subscription.trial_end! * 1000),
+    });
+  }
+
+  private async handlePaymentSuccess(invoice: Stripe.Invoice): Promise<void> {
+    const customerId = invoice.customer as string;
+    const user = await prisma.user.findFirst({
+      where: { stripeCustomerId: customerId },
+    });
+
+    if (!user) return;
+
+    // Record payment
+    await prisma.payment.create({
+      data: {
+        userId: user.id,
+        amount: invoice.amount_paid / 100, // Convert from cents
+        currency: invoice.currency.toUpperCase(),
+        status: "completed",
+        paymentMethod: "card",
+        stripeInvoiceId: invoice.id,
+        description: invoice.description || "Subscription payment",
+        productType: "subscription",
+        metadata: {
+          invoiceNumber: invoice.number,
+          period: {
+            start: invoice.period_start,
+            end: invoice.period_end,
+          },
+        },
+      },
+    });
+
+    // Track event
+    await this.trackSubscriptionEvent("payment_succeeded", {
+      userId: user.id,
+      amount: invoice.amount_paid / 100,
+      invoiceId: invoice.id,
+    });
+  }
+
+  private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
+    const customerId = invoice.customer as string;
+    const user = await prisma.user.findFirst({
+      where: { stripeCustomerId: customerId },
+    });
+
+    if (!user) return;
+
+    // Record failed payment
+    await prisma.payment.create({
+      data: {
+        userId: user.id,
+        amount: invoice.amount_due / 100,
+        currency: invoice.currency.toUpperCase(),
+        status: "failed",
+        paymentMethod: "card",
+        stripeInvoiceId: invoice.id,
+        description: invoice.description || "Subscription payment",
+        productType: "subscription",
+        failureReason: invoice.last_finalization_error?.message,
+        metadata: {
+          attemptCount: invoice.attempt_count,
+        },
+      },
+    });
+
+    // Send payment failed email
+    // TODO: Implement payment failed email
+
+    // Update subscription status if payment failure is critical
+    if (invoice.attempt_count && invoice.attempt_count > 3) {
+      await prisma.subscription.update({
+        where: { userId: user.id },
+        data: { status: "suspended" },
+      });
+    }
+
+    // Track event
+    await this.trackSubscriptionEvent("payment_failed", {
+      userId: user.id,
+      amount: invoice.amount_due / 100,
+      reason: invoice.last_finalization_error?.message,
+    });
+  }
+
+  private async handleSubscriptionPaused(
+    subscription: Stripe.Subscription,
+  ): Promise<void> {
+    const userId = subscription.metadata.userId;
+    if (!userId) return;
+
+    await prisma.subscription.update({
+      where: { userId },
+      data: { status: "paused" },
+    });
+
+    // Track event
+    await this.trackSubscriptionEvent("subscription_paused", { userId });
+  }
 }

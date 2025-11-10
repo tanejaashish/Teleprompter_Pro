@@ -18,58 +18,72 @@ model User {
   emailVerified   Boolean   @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
+
   // Relations
   subscription    Subscription?
   scripts         Script[]
   recordings      Recording[]
   sessions        Session[]
   activities      Activity[]
-  
+
   // OAuth providers
   googleId        String?   @unique
   appleId         String?   @unique
   microsoftId     String?   @unique
-  
+
+  // Stripe integration
+  stripeCustomerId String?  @unique
+
   // Settings & Metadata
   preferences     Json      @default("{}")
   metadata        Json?
-  
+
   @@index([email])
   @@index([createdAt])
+  @@index([stripeCustomerId])
+  @@index([googleId])
+  @@index([appleId])
+  @@index([microsoftId])
+  @@index([emailVerified, createdAt])
 }
 
 model Subscription {
   id              String    @id @default(cuid())
   userId          String    @unique
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   tier            String    @default("free") // free, creator, professional, enterprise
-  status          String    @default("active") // active, cancelled, expired, suspended
-  
+  status          String    @default("active") // active, cancelled, expired, suspended, paused
+
   // Stripe integration
   stripeCustomerId     String?   @unique
   stripeSubscriptionId String?   @unique
   stripePriceId        String?
-  
+
   // Subscription dates
   startDate       DateTime  @default(now())
   endDate         DateTime?
   cancelledAt     DateTime?
   trialEndsAt     DateTime?
-  
+  currentPeriodStart  DateTime?
+  currentPeriodEnd    DateTime?
+  cancelAtPeriodEnd   Boolean   @default(false)
+
   // Usage & Features
   features        Json      @default("{}")
   usage           Json      @default("{}")
   limits          Json      @default("{}")
-  
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
+
   @@index([userId])
   @@index([status])
   @@index([tier])
   @@index([stripeCustomerId])
+  @@index([status, tier])
+  @@index([userId, status])
+  @@index([currentPeriodEnd])
 }
 
 model Script {
@@ -119,6 +133,13 @@ model Script {
   @@index([isPublic])
   @@index([isTemplate])
   @@index([folderId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, updatedAt(sort: Desc)])
+  @@index([userId, isArchived])
+  @@index([userId, category])
+  @@index([isPublic, isTemplate])
+  @@index([deletedAt])
+  @@index([lastOpenedAt(sort: Desc)])
 }
 
 model ScriptVersion {
@@ -182,6 +203,10 @@ model Recording {
   @@index([scriptId])
   @@index([createdAt])
   @@index([status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, status])
+  @@index([scriptId, createdAt(sort: Desc)])
+  @@index([deletedAt])
 }
 
 model Session {
@@ -243,6 +268,9 @@ model Activity {
   @@index([entityType])
   @@index([entityId])
   @@index([createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, type])
+  @@index([entityType, entityId])
 }
 
 model Share {
@@ -382,33 +410,89 @@ model Webhook {
 
 model AuditLog {
   id              String    @id @default(cuid())
-  
+
   userId          String?
   userEmail       String?
-  
+
   action          String    // login, logout, create, update, delete, view
   resource        String    // user, script, recording, subscription
   resourceId      String?
-  
+
   // Request details
   ipAddress       String?
   userAgent       String?
   method          String?   // GET, POST, PUT, DELETE
   path            String?
-  
+
   // Response
   statusCode      Int?
   success         Boolean
   errorMessage    String?
-  
+
   // Additional data
   metadata        Json?
-  
+
   createdAt       DateTime  @default(now())
-  
+
   @@index([userId])
   @@index([action])
   @@index([resource])
   @@index([resourceId])
+  @@index([createdAt])
+}
+
+model UsageRecord {
+  id              String    @id @default(cuid())
+  userId          String
+
+  // Resource usage tracking
+  resourceType    String    // ai_generation, transcription, storage, video_processing, eye_correction
+  resourceId      String?   // specific resource identifier
+
+  // Usage metrics
+  quantity        Int       // words, minutes, bytes, etc.
+  unit            String    // words, minutes, GB, operations
+  cost            Decimal?  @db.Money
+
+  // Billing period
+  billingPeriod   String?   // YYYY-MM format
+  includedInPlan  Boolean   @default(true)
+  isOverage       Boolean   @default(false)
+
+  // Metadata
+  metadata        Json?
+  description     String?
+
+  // Timestamps
+  recordedAt      DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([resourceType])
+  @@index([billingPeriod])
+  @@index([recordedAt])
+  @@index([isOverage])
+}
+
+model Transcription {
+  id              String    @id @default(cuid())
+  userId          String
+
+  videoPath       String
+  content         String    @db.Text
+  segments        Json      // detailed word-level timestamps
+  language        String    @default("en")
+  confidence      Float     @default(0.0)
+
+  // Processing details
+  model           String?   // whisper-1, etc.
+  duration        Int?      // audio duration in seconds
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([videoPath])
+  @@index([language])
   @@index([createdAt])
 }
