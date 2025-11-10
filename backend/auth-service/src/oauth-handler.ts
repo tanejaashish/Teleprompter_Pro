@@ -228,4 +228,88 @@ export class OAuthHandler {
       30 * 24 * 60 * 60, // 30 days
     );
   }
+
+  // Microsoft OAuth handler
+  async handleMicrosoftAuth(
+    accessToken: string,
+    idToken?: string,
+  ): Promise<any> {
+    try {
+      // Verify token with Microsoft Graph API
+      const userInfoResponse = await axios.get(
+        "https://graph.microsoft.com/v1.0/me",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const userData = userInfoResponse.data;
+
+      // Find or create user
+      let user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { microsoftId: userData.id },
+            { email: userData.mail || userData.userPrincipalName },
+          ],
+        },
+        include: { subscription: true },
+      });
+
+      if (!user) {
+        // Create new user
+        user = await prisma.user.create({
+          data: {
+            email: userData.mail || userData.userPrincipalName,
+            displayName: userData.displayName,
+            microsoftId: userData.id,
+            emailVerified: true,
+            photoUrl: null, // Microsoft Graph doesn't provide photo URL directly
+            metadata: {
+              microsoftData: {
+                jobTitle: userData.jobTitle,
+                officeLocation: userData.officeLocation,
+                department: userData.department,
+              },
+            },
+          },
+          include: { subscription: true },
+        });
+
+        // Create default subscription
+        await this.createDefaultSubscription(user.id);
+
+        // Send welcome email
+        await this.sendWelcomeEmail(user);
+      } else {
+        // Update user info
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            updatedAt: new Date(),
+            displayName: userData.displayName || user.displayName,
+          },
+          include: { subscription: true },
+        });
+      }
+
+      // Generate tokens
+      const tokens = this.generateTokens(user);
+
+      // Store refresh token
+      await this.storeRefreshToken(user.id, tokens.refreshToken);
+
+      return {
+        userId: user.id,
+        ...tokens,
+      };
+    } catch (error: any) {
+      console.error("Microsoft OAuth error:", error);
+      throw new AuthenticationError(
+        `Microsoft authentication failed: ${error.message || "Unknown error"}`,
+      );
+    }
+  }
 }
