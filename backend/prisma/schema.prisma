@@ -41,6 +41,10 @@ model User {
   @@index([email])
   @@index([createdAt])
   @@index([stripeCustomerId])
+  @@index([googleId])
+  @@index([appleId])
+  @@index([microsoftId])
+  @@index([emailVerified, createdAt])
 }
 
 model Subscription {
@@ -77,6 +81,9 @@ model Subscription {
   @@index([status])
   @@index([tier])
   @@index([stripeCustomerId])
+  @@index([status, tier])
+  @@index([userId, status])
+  @@index([currentPeriodEnd])
 }
 
 model Script {
@@ -126,6 +133,13 @@ model Script {
   @@index([isPublic])
   @@index([isTemplate])
   @@index([folderId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, updatedAt(sort: Desc)])
+  @@index([userId, isArchived])
+  @@index([userId, category])
+  @@index([isPublic, isTemplate])
+  @@index([deletedAt])
+  @@index([lastOpenedAt(sort: Desc)])
 }
 
 model ScriptVersion {
@@ -189,6 +203,10 @@ model Recording {
   @@index([scriptId])
   @@index([createdAt])
   @@index([status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, status])
+  @@index([scriptId, createdAt(sort: Desc)])
+  @@index([deletedAt])
 }
 
 model Session {
@@ -250,6 +268,9 @@ model Activity {
   @@index([entityType])
   @@index([entityId])
   @@index([createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, type])
+  @@index([entityType, entityId])
 }
 
 model Share {
