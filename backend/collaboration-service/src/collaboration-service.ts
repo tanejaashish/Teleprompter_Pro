@@ -4,8 +4,11 @@
 import { PrismaClient } from "@prisma/client";
 import { Server as SocketIOServer, Socket } from "socket.io";
 import { EventEmitter } from "events";
+import Redis from "ioredis";
+import { createWebSocketRateLimitMiddleware } from "./middleware/websocket-rate-limit";
 
 const prisma = new PrismaClient();
+const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
 
 // Operation types for Operational Transformation
 export enum OperationType {
@@ -51,7 +54,22 @@ export class CollaborationService extends EventEmitter {
   constructor(io: SocketIOServer) {
     super();
     this.io = io;
+    this.setupRateLimiting();
     this.setupSocketHandlers();
+  }
+
+  // Setup WebSocket rate limiting
+  private setupRateLimiting(): void {
+    // Apply connection-level rate limiting
+    this.io.use(
+      createWebSocketRateLimitMiddleware(redis, {
+        points: 100, // 100 messages per minute
+        duration: 60,
+        blockDuration: 300, // 5 minute block on abuse
+      }),
+    );
+
+    console.log("WebSocket rate limiting enabled");
   }
 
   // Setup WebSocket handlers
