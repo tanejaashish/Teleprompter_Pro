@@ -15,6 +15,15 @@ import jwt from "jsonwebtoken";
 import path from "path";
 import { Server as SocketIOServer } from "socket.io";
 
+// Import middleware
+import { cache, invalidateOnMutation, getCacheStats } from "./middleware/cache";
+import {
+  securityAuditMiddleware,
+  logSecurityEvent,
+  SecurityEventType,
+} from "./middleware/security-audit";
+import { setupSwagger } from "./swagger";
+
 // Load environment variables
 //dotenv.config();
 dotenv.config({ path: path.join(__dirname, "../.env") });
@@ -120,6 +129,12 @@ app.use("/api/", generalLimiter);
 app.use("/api/auth/", authLimiter);
 app.use("/api/upload/", uploadLimiter);
 
+// Security audit middleware
+app.use(securityAuditMiddleware);
+
+// Setup Swagger API documentation
+setupSwagger(app);
+
 // ============================================
 // Authentication Middleware
 // ============================================
@@ -211,7 +226,56 @@ const requireSubscription = (minTier: string) => {
 // Authentication Routes
 // ============================================
 
-// Sign up
+/**
+ * @swagger
+ * /api/auth/signup:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: "SecurePass123!"
+ *               displayName:
+ *                 type: string
+ *                 example: "John Doe"
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *                 session:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                     refreshToken:
+ *                       type: string
+ *                     expiresAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ */
 app.post("/api/auth/signup", async (req: Request, res: Response) => {
   try {
     const { email, password, displayName } = req.body;
@@ -284,6 +348,17 @@ app.post("/api/auth/signup", async (req: Request, res: Response) => {
       },
     });
 
+    // Log security event
+    await logSecurityEvent(SecurityEventType.LOGIN_SUCCESS, {
+      userId: user.id,
+      userEmail: user.email,
+      resource: "auth/signup",
+      ipAddress: req.ip || null,
+      userAgent: req.get("user-agent") || null,
+      success: true,
+      metadata: { method: "email" },
+    });
+
     res.status(201).json({
       user: {
         id: user.id,
@@ -304,7 +379,47 @@ app.post("/api/auth/signup", async (req: Request, res: Response) => {
   }
 });
 
-// Sign in
+/**
+ * @swagger
+ * /api/auth/signin:
+ *   post:
+ *     summary: Sign in with email and password
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *               deviceId:
+ *                 type: string
+ *               deviceName:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successfully signed in
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *                 session:
+ *                   type: object
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 app.post("/api/auth/signin", async (req: Request, res: Response) => {
   try {
     const { email, password, deviceId, deviceName } = req.body;
@@ -374,6 +489,17 @@ app.post("/api/auth/signin", async (req: Request, res: Response) => {
       },
     });
 
+    // Log security event
+    await logSecurityEvent(SecurityEventType.LOGIN_SUCCESS, {
+      userId: user.id,
+      userEmail: user.email,
+      resource: "auth/signin",
+      ipAddress: req.ip || null,
+      userAgent: req.get("user-agent") || null,
+      success: true,
+      metadata: { deviceId, deviceName },
+    });
+
     res.json({
       user: {
         id: user.id,
@@ -393,7 +519,30 @@ app.post("/api/auth/signin", async (req: Request, res: Response) => {
   }
 });
 
-// Google OAuth
+/**
+ * @swagger
+ * /api/auth/oauth/google:
+ *   post:
+ *     summary: Sign in with Google OAuth
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idToken
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *                 description: Google ID token from OAuth flow
+ *     responses:
+ *       200:
+ *         description: Successfully authenticated
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 app.post("/api/auth/oauth/google", async (req: Request, res: Response) => {
   try {
     const { idToken } = req.body;
@@ -468,7 +617,39 @@ app.post("/api/auth/oauth/google", async (req: Request, res: Response) => {
   }
 });
 
-// Refresh token
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: New access token generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 accessToken:
+ *                   type: string
+ *                 expiresAt:
+ *                   type: string
+ *                   format: date-time
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 app.post("/api/auth/refresh", async (req: Request, res: Response) => {
   try {
     const { refreshToken } = req.body;
@@ -505,7 +686,20 @@ app.post("/api/auth/refresh", async (req: Request, res: Response) => {
   }
 });
 
-// Sign out
+/**
+ * @swagger
+ * /api/auth/signout:
+ *   post:
+ *     summary: Sign out and invalidate tokens
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully signed out
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 app.post(
   "/api/auth/signout",
   authenticateToken,
@@ -540,10 +734,41 @@ app.post(
 // Script Management Routes
 // ============================================
 
-// Get all scripts for user
+/**
+ * @swagger
+ * /api/scripts:
+ *   get:
+ *     summary: Get all scripts for authenticated user
+ *     tags: [Scripts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in title and content
+ *     responses:
+ *       200:
+ *         description: List of scripts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Script'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 app.get(
   "/api/scripts",
   authenticateToken,
+  cache({ ttl: 300, tags: ["scripts"] }),
   async (req: AuthRequest, res: Response) => {
     try {
       const scripts = await prisma.script.findMany({
@@ -573,10 +798,52 @@ app.get(
   },
 );
 
-// Create new script
+/**
+ * @swagger
+ * /api/scripts:
+ *   post:
+ *     summary: Create a new script
+ *     tags: [Scripts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - content
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: "My Presentation"
+ *               content:
+ *                 type: string
+ *                 example: "This is the script content..."
+ *               category:
+ *                 type: string
+ *                 example: "presentation"
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["business", "meeting"]
+ *     responses:
+ *       201:
+ *         description: Script created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Script'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 app.post(
   "/api/scripts",
   authenticateToken,
+  invalidateOnMutation(["api:GET:/api/scripts*", "cache:tag:scripts"]),
   async (req: AuthRequest, res: Response) => {
     try {
       const { title, content, richContent, category, tags, settings } =
@@ -626,10 +893,50 @@ app.post(
   },
 );
 
-// Update script
+/**
+ * @swagger
+ * /api/scripts/{id}:
+ *   put:
+ *     summary: Update an existing script
+ *     tags: [Scripts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Script ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Script updated successfully
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 app.put(
   "/api/scripts/:id",
   authenticateToken,
+  invalidateOnMutation(["api:GET:/api/scripts*", "cache:tag:scripts"]),
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
@@ -706,10 +1013,33 @@ app.put(
   },
 );
 
-// Delete script
+/**
+ * @swagger
+ * /api/scripts/{id}:
+ *   delete:
+ *     summary: Delete a script (soft delete)
+ *     tags: [Scripts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Script ID
+ *     responses:
+ *       200:
+ *         description: Script deleted successfully
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 app.delete(
   "/api/scripts/:id",
   authenticateToken,
+  invalidateOnMutation(["api:GET:/api/scripts*", "cache:tag:scripts"]),
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
